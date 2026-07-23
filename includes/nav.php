@@ -5,7 +5,15 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/1hnd/gametracker/');
+    $base = getenv('BASE_URL');
+    if (!$base) {
+        // Auto-detect: use / on production (Render), /1hnd/gametracker/ locally
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $base = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false)
+            ? '/1hnd/gametracker/'
+            : '/';
+    }
+    define('BASE_URL', rtrim($base, '/') . '/');
 }
 
 // Get user info from session
