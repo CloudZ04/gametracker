@@ -1,17 +1,19 @@
 <?php
-// Start the session to access session data
 session_start();
-
-// Include database connection (though not used in logout, included for consistency)
 require_once '../includes/db.php';
 
-// Clear all session variables
-session_unset();
+// Delete remember_me token from DB if one exists
+if (isset($_COOKIE['remember_me'])) {
+    $tokenHash = hash('sha256', $_COOKIE['remember_me']);
+    $stmt = $conn->prepare("DELETE FROM remember_tokens WHERE token = ?");
+    $stmt->bind_param("s", $tokenHash);
+    $stmt->execute();
+    setcookie('remember_me', '', time() - 3600, '/', '', false, true);
+}
 
-// Destroy the session completely
+session_unset();
 session_destroy();
 
-// Redirect user back to the explore page after logout
 header('Location: ../explore.php');
 exit();
 ?>

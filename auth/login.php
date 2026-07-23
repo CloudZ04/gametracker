@@ -29,6 +29,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['profile_image'] = $user['profile_image'] ?? '';
 
+                // Handle Remember Me
+                if (!empty($_POST['remember_me'])) {
+                    $token = bin2hex(random_bytes(32));
+                    $tokenHash = hash('sha256', $token);
+                    $expires = date('Y-m-d H:i:s', strtotime('+30 days'));
+                    $userId = $user['id'];
+                    $stmt = $conn->prepare("INSERT INTO remember_tokens (user_id, token, expires_at) VALUES (?, ?, ?)");
+                    $stmt->bind_param("iss", $userId, $tokenHash, $expires);
+                    $stmt->execute();
+                    setcookie('remember_me', $token, time() + (86400 * 30), '/', '', false, true);
+                }
+
                 // Redirect to explore page after successful login
                 header('Location: ../explore.php');
                 exit();
@@ -155,6 +167,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             color: #a8a8b3;
             border-radius: 8px 0 0 8px;
         }
+        .remember-me-label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 0.95rem;
+            user-select: none;
+        }
+        .remember-me-label input[type="checkbox"] {
+            display: none;
+        }
+        .remember-me-box {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(178, 0, 255, 0.5);
+            border-radius: 5px;
+            background: rgba(30, 30, 47, 0.8);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .remember-me-label input[type="checkbox"]:checked ~ .remember-me-box {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .remember-me-label input[type="checkbox"]:checked ~ .remember-me-box::after {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 8px;
+            border: 2px solid #fff;
+            border-top: none;
+            border-left: none;
+            transform: rotate(45deg);
+            margin-bottom: 2px;
+        }
         @media (max-width: 576px) {
             .form-container {
                 width: 90vw !important;
@@ -238,6 +289,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
         </div>
         
+        <!-- Remember Me -->
+        <div class="mb-3">
+            <label class="remember-me-label">
+                <input type="checkbox" name="remember_me" value="1">
+                <span class="remember-me-box"></span>
+                Keep me logged in
+            </label>
+        </div>
+
         <!-- Submit Button -->
         <button class="btn btn-primary w-100 mt-2"><i class="bi bi-box-arrow-in-right me-2"></i>Login</button>
     </form>

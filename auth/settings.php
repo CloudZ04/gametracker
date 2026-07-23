@@ -423,6 +423,14 @@ $page_title = "Account Settings";
                         </form>
 
                         <div class="border-top pt-4 mt-4">
+                            <h6 class="mb-1">Persistent Login</h6>
+                            <p class="text-muted mb-3">If you ticked "Keep me logged in" when signing in, you have an active remember token. Disabling this will sign you out of any device using that token on next page load.</p>
+                            <button type="button" class="btn btn-outline-warning" id="disablePersistentLoginBtn">
+                                <i class="bi bi-shield-x me-2"></i>Disable Persistent Login
+                            </button>
+                        </div>
+
+                        <div class="border-top pt-4 mt-4">
                             <h6 class="text-danger">Danger Zone</h6>
                             <p class="text-muted">Once you delete your account, there is no going back. Please be certain.</p>
                             <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
@@ -532,6 +540,19 @@ $page_title = "Account Settings";
     </div>
 
     <script>
+    document.getElementById('disablePersistentLoginBtn')?.addEventListener('click', function() {
+        fetch('../api/disable-persistent-login.php', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Persistent login disabled. You will need to log in again next visit.', 'success');
+                } else {
+                    showToast('Failed to disable persistent login.', 'error');
+                }
+            })
+            .catch(() => showToast('Something went wrong.', 'error'));
+    });
+
     console.log('Settings page JavaScript loaded');
     // Debug: Log notification values from PHP
     console.log('Notification values from database:');
