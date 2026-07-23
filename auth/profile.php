@@ -1714,7 +1714,9 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
     <div class="profile-header d-flex align-items-start">
         <div class="profile-avatar me-4">
             <?php if (!empty($user['profile_image'])): ?>
-                <img src="<?= strpos($user['profile_image'], 'uploads/profiles/') === 0 ? htmlspecialchars($user['profile_image']) : 'uploads/profiles/' . htmlspecialchars($user['profile_image']) ?>" alt="Profile Image">
+                <img src="<?= strpos($user['profile_image'], 'uploads/profiles/') === 0 ? htmlspecialchars($user['profile_image']) : 'uploads/profiles/' . htmlspecialchars($user['profile_image']) ?>" alt="Profile Image"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="profile-avatar-initials" style="display:none"><?= $initials ?></div>
             <?php else: ?>
                 <div class="profile-avatar-initials"><?= $initials ?></div>
             <?php endif; ?>

@@ -25,6 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 // Set session variables for authenticated user
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
+                $_SESSION['name'] = $user['name'] ?? $user['username'];
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['profile_image'] = $user['profile_image'] ?? '';
 

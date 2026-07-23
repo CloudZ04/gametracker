@@ -17,8 +17,9 @@ Thumbs.db
 .idea/
 .vscode/
 
-# User-uploaded profile images
-auth/uploads/
+# Keep uploaded files out of git except existing profile images
+# auth/uploads/ is intentionally not ignored so existing images deploy to Render
+# Note: new uploads on Render will not persist across redeploys (no persistent disk)
 
 # SCSS source files
 scss/

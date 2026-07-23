@@ -18,6 +18,7 @@ if (!defined('BASE_URL')) {
 
 // Get user info from session
 $username = $_SESSION['username'] ?? 'Guest';
+$displayName = $_SESSION['name'] ?? $username;
 $initials = strtoupper(preg_replace('/[^A-Z]/i', '', $username[0] . ($username[1] ?? '')));
 $profile_image = $_SESSION['profile_image'] ?? '';
 
@@ -556,7 +557,7 @@ button, input, select, textarea,
           <?php else: ?>
             <div class="initials-avatar"><?= $initials ?></div>
           <?php endif; ?>
-          <span class="d-none d-sm-inline text-nowrap"><?= htmlspecialchars($username) ?></span>
+          <span class="d-none d-sm-inline text-nowrap"><?= htmlspecialchars($displayName) ?></span>
         </a>
         <!-- Mobile dropdown menu items -->
                   <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end navbar-dropdown-menu" aria-labelledby="userDropdownMobile">
@@ -660,7 +661,7 @@ button, input, select, textarea,
             <?php else: ?>
               <div class="initials-avatar"><?= $initials ?></div>
             <?php endif; ?>
-            <span class="text-nowrap"><?= htmlspecialchars($username) ?></span>
+            <span class="text-nowrap"><?= htmlspecialchars($displayName) ?></span>
           </a>
           <!-- Desktop dropdown menu items -->
           <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end navbar-dropdown-menu" aria-labelledby="userDropdownDesktop">
