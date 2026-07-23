@@ -525,6 +525,7 @@ while ($row = $bgQuery->fetch_assoc()) {
             </div>
           </div>
 
+          <?php if (!isset($_SESSION['user_id'])): ?>
           <div class="mt-4 d-flex gap-3">
             <a href="auth/login.php" class="btn-enhanced btn-primary-enhanced">
               Login
@@ -533,6 +534,7 @@ while ($row = $bgQuery->fetch_assoc()) {
               Register
             </a>
           </div>
+          <?php endif; ?>
 
           <a href="#first-time" class="first-time-btn" id="firstTimeBtn">
             <i class="ph ph-info"></i>
