@@ -549,7 +549,10 @@ button, input, select, textarea,
       <div class="nav-item dropdown ms-2 d-block d-lg-none">
         <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdownMobile" role="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
           <?php if (!empty($profile_image_url)): ?>
-            <span class="nav-profile-avatar"><img src="<?= $profile_image_url ?>" alt="Profile"></span>
+            <span class="nav-profile-avatar" id="nav-avatar-mobile">
+              <img src="<?= $profile_image_url ?>" alt="Profile"
+                   onerror="this.parentElement.innerHTML='<div class=\'initials-avatar\'><?= $initials ?></div>'">
+            </span>
           <?php else: ?>
             <div class="initials-avatar"><?= $initials ?></div>
           <?php endif; ?>
@@ -650,7 +653,10 @@ button, input, select, textarea,
         <li class="nav-item dropdown ms-2 d-none d-lg-block">
           <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdownDesktop" role="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
             <?php if (!empty($profile_image_url)): ?>
-              <span class="nav-profile-avatar"><img src="<?= $profile_image_url ?>" alt="Profile"></span>
+              <span class="nav-profile-avatar" id="nav-avatar-desktop">
+                <img src="<?= $profile_image_url ?>" alt="Profile"
+                     onerror="this.parentElement.innerHTML='<div class=\'initials-avatar\'><?= $initials ?></div>'">
+              </span>
             <?php else: ?>
               <div class="initials-avatar"><?= $initials ?></div>
             <?php endif; ?>
