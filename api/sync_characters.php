@@ -6,6 +6,7 @@ header('Content-Type: application/json');
 while (ob_get_level()) { ob_end_clean(); }
 
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 
 try {
   // ---------- INPUT ----------
@@ -17,7 +18,7 @@ try {
   if ($gameId <= 0) { http_response_code(400); echo json_encode(['error'=>'Missing/invalid game_id']); exit; }
 
   // ---------- CONFIG (hard-coded like your RAWG script) ----------
-  $GB_KEY  = '47c92ad074ff53abc54209d8d75d37046496bcd8';  // <- put your real key here
+  $GB_KEY  = GIANTBOMB_API_KEY;
   $GB_BASE = 'https://www.giantbomb.com/api';
   $UA      = 'gametracker/1.0 (+localhost)';
 

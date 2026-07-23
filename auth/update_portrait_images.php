@@ -7,6 +7,7 @@ ignore_user_abort(true);
 ini_set('max_execution_time', '0');
 
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 session_start();
 
 header('Content-Type: application/json');
@@ -201,8 +202,8 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     sendJsonAndExit(['success' => false, 'error' => 'Unauthorized'], 401);
 }
 
-$clientId = 'avrcrn7yp1lyhkkve1et2ha4rwvhzo';
-$clientSecret = '4rsurue3p8kv0l0kua3orx9y6oxjwf';
+$clientId = IGDB_CLIENT_ID;
+$clientSecret = IGDB_CLIENT_SECRET;
 
 $tokenResult = getFreshIGDBAccessToken($clientId, $clientSecret);
 if (!$tokenResult['ok']) {

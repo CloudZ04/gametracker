@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 header('Content-Type: application/json');
 
 $search = $_GET['q'] ?? '';
@@ -213,8 +214,8 @@ function scoreIgdbCandidate($inputTitle, $candidate) {
 
 // --- NEW: RAWG fallback function ---
 function fetchIGDBPortrait($gameTitle) {
-    $clientId = 'avrcrn7yp1lyhkkve1et2ha4rwvhzo';
-    $clientSecret = '4rsurue3p8kv0l0kua3orx9y6oxjwf';
+    $clientId = IGDB_CLIENT_ID;
+    $clientSecret = IGDB_CLIENT_SECRET;
     $accessToken = getFreshIGDBAccessToken($clientId, $clientSecret);
     if (!$accessToken) {
         return '';

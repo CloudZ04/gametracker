@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 
 // Validate game ID parameter
 if (!isset($_GET['id'])) {
@@ -30,8 +31,8 @@ function writeLog($message) {
 
 // Function to get IGDB API access token
 function getIGDBAccessToken() {
-    $clientId = 'avrcrn7yp1lyhkkve1et2ha4rwvhzo';
-    $clientSecret = '4rsurue3p8kv0l0kua3orx9y6oxjwf';
+    $clientId = IGDB_CLIENT_ID;
+    $clientSecret = IGDB_CLIENT_SECRET;
     
     $url = 'https://id.twitch.tv/oauth2/token';
     $data = [

@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 require_once '../includes/steam_helpers.php';
 session_start();
 
@@ -26,9 +27,7 @@ if (empty($steamId)) {
 }
 
 try {
-    if (!defined('STEAM_API_KEY')) {
-        define('STEAM_API_KEY', '4AC57954A37BD60630F8B7CD313B2338');
-    }
+    // STEAM_API_KEY is defined in includes/config.php
 
     // Update achievements for all games
     $success = updateAllSteamAchievements($conn, $_SESSION['user_id']);

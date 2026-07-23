@@ -5,11 +5,12 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 
 // API credentials for game data fetching
-$api_key = '58aed2d9aedd4274ab81d91356e775f2'; // RAWG API key
-$clientId = 'avrcrn7yp1lyhkkve1et2ha4rwvhzo';  // IGDB client ID
-$clientSecret = '4rsurue3p8kv0l0kua3orx9y6oxjwf'; // IGDB client secret (Twitch app secret)
+$api_key = RAWG_API_KEY;
+$clientId = IGDB_CLIENT_ID;
+$clientSecret = IGDB_CLIENT_SECRET;
 
 // Pagination settings for RAWG API
 $page_size = 20;

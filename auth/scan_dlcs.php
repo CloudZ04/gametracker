@@ -5,6 +5,7 @@ ignore_user_abort(true);
 @set_time_limit(0);
 
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 session_start();
 
 header('Content-Type: application/json');
@@ -285,9 +286,9 @@ function findParentGameId(mysqli $conn, int $currentGameId, ?int $parentRawgId, 
 }
 
 try {
-    $apiKey = '58aed2d9aedd4274ab81d91356e775f2';
-    $igdbClientId = 'avrcrn7yp1lyhkkve1et2ha4rwvhzo';
-    $igdbClientSecret = '4rsurue3p8kv0l0kua3orx9y6oxjwf';
+    $apiKey = RAWG_API_KEY;
+    $igdbClientId = IGDB_CLIENT_ID;
+    $igdbClientSecret = IGDB_CLIENT_SECRET;
     $igdbToken = getFreshIGDBAccessToken($igdbClientId, $igdbClientSecret) ?? '';
 
     $result = $conn->query("SELECT id, title, rawg_id, steam_app_id, release_date, description, image_url, portrait_image_url, platforms, genre, avg_rating, total_reviews, source FROM games");

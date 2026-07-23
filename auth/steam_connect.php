@@ -1,14 +1,12 @@
 <?php
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 require_once '../includes/steam_helpers.php';
 session_start();
 
-// Your Steam API Key
-define('STEAM_API_KEY', '4AC57954A37BD60630F8B7CD313B2338');
-
 // Steam OpenID URL
 define('STEAM_LOGIN_URL', 'https://steamcommunity.com/openid/login');
-define('SITE_URL', 'http://localhost/1hnd/gametracker'); // Updated path
+define('SITE_URL', getenv('SITE_URL') ?: 'http://localhost/1hnd/gametracker');
 
 // If this is the return from Steam
 if (isset($_GET['openid_claimed_id'])) {

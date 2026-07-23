@@ -1,6 +1,8 @@
 <?php
+require_once __DIR__ . '/config.php';
+
 function getSteamAchievements($steamId, $appId) {
-    $apiKey = '4AC57954A37BD60630F8B7CD313B2338';
+    $apiKey = STEAM_API_KEY;
     
     // Get user achievements
     $userAchUrl = "https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?appid={$appId}&steamid={$steamId}&key={$apiKey}";
