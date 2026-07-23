@@ -1,0 +1,31 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+auth/debug.log
+games/rawg_debug.log
+igdb_debug.log
+steam_debug.log
+rawg_debug.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# User-uploaded profile images
+auth/uploads/
+
+# SCSS source files
+scss/
+
+# Dev notes
+TESTING_CHECKLIST.md
+
+# Dependency/vendor folders (uncomment if you add these later)
+# vendor/
+# node_modules/
