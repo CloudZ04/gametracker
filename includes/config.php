@@ -14,3 +14,6 @@ if (!defined('STEAM_API_KEY')) {
 if (!defined('GIANTBOMB_API_KEY')) {
     define('GIANTBOMB_API_KEY',  getenv('GIANTBOMB_API_KEY')  ?: '47c92ad074ff53abc54209d8d75d37046496bcd8');
 }
+if (!defined('TINYMCE_API_KEY')) {
+    define('TINYMCE_API_KEY',    getenv('TINYMCE_API_KEY')    ?: 'jvunm77ntssfwpgxwo5nxsvyem07dd67san0gwm2nmu6allo');
+}

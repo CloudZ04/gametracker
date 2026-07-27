@@ -1,6 +1,7 @@
 <?php
 // Include database connection and start session
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 session_start();
 
 // Security check: Ensure user is logged in and has admin role
@@ -146,7 +147,7 @@ $desc = str_replace(["\\r\\n", "\\n", "\\r", "\r\n"], "\n", $game['description']
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../includes/styles.css">
-    <script src="https://cdn.tiny.cloud/1/pyoz0tmz9ckkdx3jg0ix289lh7fbecut58fsjqxd53d2ge90/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.tiny.cloud/1/<?= TINYMCE_API_KEY ?>/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <style>
         :root {
             --primary-color: #b200ff;

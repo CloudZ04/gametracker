@@ -762,10 +762,12 @@ function renderStars($rating) {
         }
 
         /* Status colors */
+        .status-want-to-play { background-color: #3b82f6 !important; }
         .status-playing { background-color: #28a745 !important; }
         .status-beaten { background-color: #d742f5 !important; }
         .status-completed { background-color: #f1c40f !important; }
         .status-shelved { background-color: #e67e22 !important; }
+        .status-abandoned { background-color: #e74c3c !important; }
         .status-abandoned { background-color: #e74c3c !important; }
 
         /* Modal styles */
@@ -1665,7 +1667,16 @@ $(document).ready(function() {
                 if (data.success) {
                     const statusClass = selectedStatus.toLowerCase().replace(/\s+/g, '-');
                     const $statusBtn = $('#statusBtn');
-                    $statusBtn.html('<i class="ph-fill ph-game-controller"></i> ' + selectedStatus);
+                    const statusIcons = {
+                        'Want to Play': '<i class="ph-fill ph-list-plus"></i>',
+                        'Playing':      '<i class="ph-fill ph-game-controller"></i>',
+                        'Beaten':       '<i class="bi bi-check-circle"></i>',
+                        'Completed':    '<i class="bi bi-trophy"></i>',
+                        'Shelved':      '<i class="bi bi-pause-circle"></i>',
+                        'Abandoned':    '<i class="bi bi-x-circle"></i>'
+                    };
+                    const icon = statusIcons[selectedStatus] || '<i class="ph-fill ph-game-controller"></i>';
+                    $statusBtn.html(icon + ' ' + selectedStatus);
                     $statusBtn.removeClass('status-playing status-beaten status-completed status-shelved status-abandoned status-want-to-play');
                     $statusBtn.addClass('status-' + statusClass);
                     closeStatusModal();
