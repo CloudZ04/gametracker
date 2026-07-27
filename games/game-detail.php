@@ -365,6 +365,15 @@ function renderStars($rating) {
         .description-markdown h5 { font-size: 1.1rem; }
         .description-markdown h6 { font-size: 1rem; }
 
+        /* Images inserted via TinyMCE */
+        .description-markdown img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+            margin: 1rem auto;
+        }
+
         .description-markdown h1::after,
         .description-markdown h2::after {
             content: '';
