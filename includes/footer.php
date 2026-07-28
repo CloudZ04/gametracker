@@ -69,7 +69,7 @@
       <a href="terms.php" class="text-decoration-none">Terms of Service</a>
     </p>
     <p class="mb-0 footer-credit">
-      Made with <i class="ph-fill ph-heart-straight credit-heart" aria-hidden="true"></i> by KyleDevs
+      Made with <i class="ph-fill ph-heart-straight credit-heart" aria-hidden="true"></i> by <a href="https://kyledevs.co.uk" target="_blank" rel="noopener">KyleDevs</a>
     </p>
   </div>
 </footer>
