@@ -196,11 +196,7 @@ session_start();
 
         <div class="contact-section">
             <h2>Contact Us</h2>
-            <p>If you have any questions about this Privacy Policy, please contact us at:</p>
-            <ul>
-                <li>Email: privacy@gametracker.gg</li>
-                <li>Address: [Your Business Address]</li>
-            </ul>
+            <p>If you have any questions about this Privacy Policy, please contact me using the Support page <a href="support.php">here</a> and I will get back to you as soon as possible.</p>
         </div>
 
         <p class="last-updated">Last updated: <?php echo date('F j, Y'); ?></p>
