@@ -97,6 +97,14 @@ session_start();
             margin-top: 2rem;
             border: 1px solid rgba(127, 0, 255, 0.3);
         }
+        .contact-section a {
+            color: #d086ff;
+            text-decoration: none;
+        }
+        .contact-section a:hover {
+            color: #e2a9ff;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
