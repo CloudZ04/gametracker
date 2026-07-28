@@ -344,6 +344,7 @@ $new_users_month = $conn->query("SELECT COUNT(*) FROM users WHERE created_at >= 
         modal.show();
     }
 
+
     document.getElementById('updateSteamBtn').addEventListener('click', function(e) {
         const button = this;
         const originalHtml = button.innerHTML;

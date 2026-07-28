@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 session_start();
 
 // Get username from URL parameter and sanitize it
@@ -58,6 +59,33 @@ if (!$can_view_profile) {
 
 // Generate initials from the viewed profile's username (use $profile_initials to avoid nav.php overwriting $initials)
 $profile_initials = strtoupper(preg_replace('/[^A-Z]/i', '', $profile_user['username'][0] . ($profile_user['username'][1] ?? '')));
+
+// Fetch Steam "currently playing" if the user has linked their Steam account
+$steam_current_game = null;
+if (!empty($profile_user['steam_id'])) {
+    $steamApiKey = getenv('STEAM_API_KEY') ?: (defined('STEAM_API_KEY') ? STEAM_API_KEY : '');
+    if ($steamApiKey) {
+        $steamUrl = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={$steamApiKey}&steamids={$profile_user['steam_id']}";
+        $ch = curl_init($steamUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 4,
+            CURLOPT_USERAGENT      => 'GameTracker/1.0',
+        ]);
+        $steamResponse = curl_exec($ch);
+        curl_close($ch);
+        if ($steamResponse) {
+            $steamData = json_decode($steamResponse, true);
+            $player = $steamData['response']['players'][0] ?? null;
+            if ($player && !empty($player['gameextrainfo'])) {
+                $steam_current_game = [
+                    'name'   => $player['gameextrainfo'],
+                    'app_id' => $player['gameid'] ?? null,
+                ];
+            }
+        }
+    }
+}
 
 // Define game collection statuses
 $collections = ['Want to Play', 'Playing', 'Beaten', 'Completed', 'Shelved', 'Abandoned'];
@@ -135,6 +163,34 @@ $friendCount = $friendQuery->get_result()->fetch_assoc()['count'];
             padding: 1.5rem;
             border: 1px solid rgba(127, 0, 255, 0.1);
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        .currently-playing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(178, 0, 255, 0.1);
+            border: 1px solid rgba(178, 0, 255, 0.35);
+            border-radius: 20px;
+            padding: 0.3rem 0.85rem;
+            font-size: 0.78rem;
+            color: #c084fc;
+            letter-spacing: 0.01em;
+        }
+        .currently-playing-badge .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.65); }
+        }
+        .currently-playing-badge .game-name {
+            font-weight: 600;
+            color: #fff;
         }
 
         .profile-header::before {
@@ -1187,7 +1243,15 @@ $friendCount = $friendQuery->get_result()->fetch_assoc()['count'];
             </div>
             <div class="profile-info">
                 <div class="profile-main-row">
-                    <h2 class="profile-name"><?= htmlspecialchars($profile_user['name'] ?: $profile_user['username']) ?></h2>
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <h2 class="profile-name mb-0"><?= htmlspecialchars($profile_user['name'] ?: $profile_user['username']) ?></h2>
+                        <?php if ($steam_current_game): ?>
+                            <div class="currently-playing-badge">
+                                <span class="live-dot"></span>
+                                Playing on Steam:&nbsp;<span class="game-name"><?= htmlspecialchars($steam_current_game['name']) ?></span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                     
                     <div class="profile-stats">
                         <div class="stat-item">

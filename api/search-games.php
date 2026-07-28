@@ -364,6 +364,7 @@ function fetchAndSaveFromRAWG($search, $conn) {
             INSERT INTO games (title, release_date, image_url, portrait_image_url, platforms, genre, avg_rating, rawg_id, description)
             VALUES ('{$title}', {$releaseDateSql}, '{$imageUrl}', '{$portraitUrl}', '{$platforms}', '{$genres}', '{$rating}', {$rawgId}, '{$description}')
         ");
+
     }
 }
 

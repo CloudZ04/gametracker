@@ -1,6 +1,7 @@
 <?php
 // Include database connection and start session
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 session_start();
 
 // Authentication check: Redirect to login if not authenticated
@@ -22,6 +23,30 @@ $user = $result->fetch_assoc();
 
 // Generate initials from username for avatar fallback
 $initials = strtoupper(preg_replace('/[^A-Z]/i', '', $username[0] . ($username[1] ?? '')));
+
+// Fetch Steam "currently playing"
+$steam_current_game = null;
+$steamIdRow = $conn->prepare("SELECT steam_id FROM users WHERE id = ?");
+$steamIdRow->bind_param("i", $userId);
+$steamIdRow->execute();
+$steamIdResult = $steamIdRow->get_result()->fetch_assoc();
+if (!empty($steamIdResult['steam_id'])) {
+    $steamApiKey = defined('STEAM_API_KEY') ? STEAM_API_KEY : getenv('STEAM_API_KEY');
+    if ($steamApiKey) {
+        $steamUrl = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={$steamApiKey}&steamids={$steamIdResult['steam_id']}";
+        $ch = curl_init($steamUrl);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 4, CURLOPT_USERAGENT => 'GameTracker/1.0']);
+        $steamResponse = curl_exec($ch);
+        curl_close($ch);
+        if ($steamResponse) {
+            $steamData = json_decode($steamResponse, true);
+            $player = $steamData['response']['players'][0] ?? null;
+            if ($player && !empty($player['gameextrainfo'])) {
+                $steam_current_game = ['name' => $player['gameextrainfo'], 'app_id' => $player['gameid'] ?? null];
+            }
+        }
+    }
+}
 
 // Define game collection statuses
 $collections = ['Want to Play', 'Playing', 'Beaten', 'Completed', 'Shelved', 'Abandoned'];
@@ -81,6 +106,34 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
             --glow-shadow: 0 0 20px rgba(127, 0, 255, 0.5);
         }
         
+        .currently-playing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(178, 0, 255, 0.1);
+            border: 1px solid rgba(178, 0, 255, 0.35);
+            border-radius: 20px;
+            padding: 0.3rem 0.85rem;
+            font-size: 0.78rem;
+            color: #c084fc;
+            letter-spacing: 0.01em;
+        }
+        .currently-playing-badge .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.65); }
+        }
+        .currently-playing-badge .game-name {
+            font-weight: 600;
+            color: #fff;
+        }
         body {
             background-color: var(--dark-bg);
             font-family: 'Exo 2', sans-serif;
@@ -1723,9 +1776,17 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
         </div>
 
         <div class="profile-info">
-            <h2 class="mb-0">
-                <?= !empty($user['name']) ? htmlspecialchars($user['name']) : htmlspecialchars($username) ?>
-            </h2>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <h2 class="mb-0">
+                    <?= !empty($user['name']) ? htmlspecialchars($user['name']) : htmlspecialchars($username) ?>
+                </h2>
+                <?php if ($steam_current_game): ?>
+                    <div class="currently-playing-badge">
+                        <span class="live-dot"></span>
+                        Playing on Steam:&nbsp;<span class="game-name"><?= htmlspecialchars($steam_current_game['name']) ?></span>
+                    </div>
+                <?php endif; ?>
+            </div>
             <p class="text-light">@<?= htmlspecialchars($username) ?></p>
             <p class="about-text"><?= nl2br(htmlspecialchars($user['about'] ?? "I love video games, storytelling, and discovery.")) ?></p>
             
