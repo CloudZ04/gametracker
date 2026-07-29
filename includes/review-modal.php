@@ -1,4 +1,8 @@
-<?php if (!defined('BASE_URL')) { define('BASE_URL', '/1hnd/gametracker/'); } ?>
+<?php
+if (!defined('BASE_URL')) {
+    require_once __DIR__ . '/config.php';
+}
+?>
 <!-- Review Modal -->
 <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">

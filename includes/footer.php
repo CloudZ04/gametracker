@@ -1,4 +1,8 @@
-
+<?php
+if (!defined('BASE_URL')) {
+    require_once __DIR__ . '/config.php';
+}
+?>
 <style>
 @import url("https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css");
 
@@ -64,9 +68,9 @@
     <p class="mb-1">&copy; <?= date('Y') ?> GameTracker. All rights reserved.</p>
     <p class="mb-1">Game images provided by <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">RAWG</a> and <a href="https://api.igdb.com/" target="_blank" rel="noopener">IGDB</a> for educational and non-commercial use.</p>
     <p class="mb-0">
-      <a href="privacy-policy.php" class="text-decoration-none">Privacy Policy</a> |
-      <a href="roadmap.php" class="text-decoration-none">Roadmap</a> |
-      <a href="terms.php" class="text-decoration-none">Terms of Service</a>
+      <a href="<?= BASE_URL ?>privacy-policy.php" class="text-decoration-none">Privacy Policy</a> |
+      <a href="<?= BASE_URL ?>roadmap.php" class="text-decoration-none">Roadmap</a> |
+      <a href="<?= BASE_URL ?>terms.php" class="text-decoration-none">Terms of Service</a>
     </p>
     <p class="mb-0 footer-credit">
       Made with <i class="ph-fill ph-heart-straight credit-heart" aria-hidden="true"></i> by <a href="https://kyledevs.co.uk" target="_blank" rel="noopener">KyleDevs</a>

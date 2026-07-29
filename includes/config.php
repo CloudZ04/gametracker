@@ -1,4 +1,16 @@
 <?php
+// App base path: /1hnd/gametracker/ on localhost, / on production (Render)
+if (!defined('BASE_URL')) {
+    $base = getenv('BASE_URL');
+    if (!$base) {
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $base = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false)
+            ? '/1hnd/gametracker/'
+            : '/';
+    }
+    define('BASE_URL', rtrim($base, '/') . '/');
+}
+
 if (!defined('RAWG_API_KEY')) {
     define('RAWG_API_KEY',       getenv('RAWG_API_KEY')       ?: '58aed2d9aedd4274ab81d91356e775f2');
 }

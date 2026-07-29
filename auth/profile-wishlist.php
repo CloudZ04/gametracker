@@ -328,7 +328,7 @@ $user = $userResult->fetch_assoc();
                     <i class="bi bi-cart" style="font-size: 3rem; color: var(--primary-color); opacity: 0.6;"></i>
                     <h3 class="mt-3">Your wishlist is empty</h3>
                     <p>Add games to your wishlist to see them here</p>
-                    <a href="/explore.php" class="btn btn-primary mt-3">Browse Games</a>
+                    <a href="<?= BASE_URL ?>explore.php" class="btn btn-primary mt-3">Browse Games</a>
                 </div>
             <?php endif; ?>
         </div>
@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isActive = this.classList.contains('active');
             
             // Send request to update wishlist
-            fetch('/api/wishlist.php', {
+            fetch('<?= BASE_URL ?>api/wishlist.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `game_id=${gameId}&action=${isActive ? 'remove' : 'add'}`

@@ -1228,7 +1228,7 @@ $dlcs = $dlcQuery->get_result();
                         $isReleased = $releaseDate <= $now;
                     }
                 ?>
-                <a class="btn btn-primary" href="/1hnd/gametracker/games/characters.php?game_id=<?= (int)$game['id'] ?>">
+                <a class="btn btn-primary" href="<?= BASE_URL ?>games/characters.php?game_id=<?= (int)$game['id'] ?>">
   Characters
 </a>
 

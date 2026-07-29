@@ -402,7 +402,7 @@ $page_title = "Account Settings";
                         <h5 class="mb-4">Account Settings</h5>
                         <div class="alert alert-info mb-4" style="background: rgba(127, 0, 255, 0.1); border: 1px solid rgba(127, 0, 255, 0.2); color: var(--text-color);">
                             <i class="bi bi-info-circle me-2"></i>
-                            Your username (<strong><?= htmlspecialchars($user['username']) ?></strong>) cannot be changed. If you have a special circumstance, please <a href="../support.php" style="color: var(--primary-color); text-decoration: none; font-weight: bold;">contact support</a>.
+                            Your username (<strong><?= htmlspecialchars($user['username']) ?></strong>) cannot be changed. If you have a special circumstance, please <a href="<?= BASE_URL ?>support.php" style="color: var(--primary-color); text-decoration: none; font-weight: bold;">contact support</a>.
                         </div>
 
                         <form id="passwordForm" action="update-password.php" method="POST" class="mb-4">

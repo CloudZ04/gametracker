@@ -251,7 +251,7 @@ session_start();
                 <div class="faq-question">What data does GameTracker collect?</div>
                 <div class="faq-answer">
                     We collect basic account information (email, username), your game collection data, reviews, and if connected, 
-                    your Steam achievements and Steam ID. For full details, please read our <a href="privacy-policy.php">Privacy Policy</a>.
+                    your Steam achievements and Steam ID. For full details, please read our <a href="<?= BASE_URL ?>privacy-policy.php">Privacy Policy</a>.
                 </div>
             </div>
 
@@ -271,7 +271,7 @@ session_start();
             <div class="faq-item">
                 <div class="faq-question">How can I get additional support?</div>
                 <div class="faq-answer">
-                    If you couldn't find the answer to your question here, please check our <a href="terms.php">Terms of Service</a> 
+                    If you couldn't find the answer to your question here, please check our <a href="<?= BASE_URL ?>terms.php">Terms of Service</a> 
                     or contact our support team for assistance.
                 </div>
             </div>

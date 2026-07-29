@@ -1,5 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
+require_once '../includes/config.php';
 // TODO: add your admin auth guard here (don't redirect from this page)
 ?>
 <!DOCTYPE html>
@@ -41,7 +42,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
         <button id="fetchBtn" class="btn btn-primary">Fetch Candidates</button>
         <button id="runSyncBtn" class="btn btn-warning">Run Sync (auto)</button>
         <button id="prefillBtn" class="btn btn-outline-light">Prefill: Mass Effect 2</button>
-        <a href="/1hnd/gametracker/auth/games.php" class="btn btn-outline-secondary ms-auto">Back to Games</a>
+        <a href="<?= BASE_URL ?>auth/games.php" class="btn btn-outline-secondary ms-auto">Back to Games</a>
       </div>
       <div id="status" class="mt-3 dim">Idle.</div>
     </div>
@@ -74,7 +75,8 @@ if (session_status() === PHP_SESSION_NONE) session_start();
   </div>
 
   <script>
-    const BASE = '/1hnd/gametracker';
+    const BASE = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+    const baseUrl = <?= json_encode(BASE_URL) ?>;
     const $ = id => document.getElementById(id);
 
     // prefill from query string
@@ -229,7 +231,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
         <h4 class="mb-2">✅ Saved</h4>
         <pre class="mb-0" style="background:#0f1230;color:#cfd3ff;padding:1rem;border-radius:8px;">${JSON.stringify(data, null, 2)}</pre>
         <div class="mt-3">
-          <a class="btn btn-outline-light" href="/1hnd/gametracker/games/characters.php?game_id=${lastPayload.game_id}">View public Characters page</a>
+          <a class="btn btn-outline-light" href="${baseUrl}games/characters.php?game_id=${lastPayload.game_id}">View public Characters page</a>
         </div>
       `;
       setStatus('Done.');

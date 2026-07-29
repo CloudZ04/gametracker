@@ -577,7 +577,7 @@ while ($row = $bgQuery->fetch_assoc()) {
         <div class="content">
           <h2><i class="ph ph-code"></i> View Our Roadmap</h2>
           <p class="mt-2">See what features are planned and what's already been completed.</p>
-          <div class="glow-button"><a href="roadmap.php">
+          <div class="glow-button"><a href="<?= BASE_URL ?>roadmap.php">
               <button class="btn-controller">
                 Roadmap
                 <div class="controller-dots">
@@ -688,7 +688,7 @@ while ($row = $bgQuery->fetch_assoc()) {
       </div>
 
       <p class="first-time-footer-note">
-        This project is built and maintained solo. If something breaks, feel free to report it via the <a href="support.php">Support</a> page.
+        This project is built and maintained solo. If something breaks, feel free to report it via the <a href="<?= BASE_URL ?>support.php">Support</a> page.
       </p>
     </div>
   </section>

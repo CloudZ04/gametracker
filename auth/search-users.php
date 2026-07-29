@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 session_start();
 
 // Authentication check
@@ -30,7 +31,7 @@ $result = $suggestStmt->get_result();
 while ($row = $result->fetch_assoc()) {
     $row['initials'] = strtoupper(substr($row['username'], 0, 1) . substr($row['username'], 1, 1));
     if ($row['profile_image']) {
-        $row['profile_image'] = '/1hnd/gametracker/auth/uploads/profiles/' . basename($row['profile_image']);
+        $row['profile_image'] = BASE_URL . 'auth/uploads/profiles/' . basename($row['profile_image']);
     }
     $suggested[] = $row;
 }

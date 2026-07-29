@@ -56,9 +56,9 @@ session_start();
         </div>
 
         <div class="support-actions mt-4">
-            <a href="faq.php" class="btn btn-outline-light"><i class="bi bi-question-circle me-1"></i>Read FAQ</a>
-            <a href="terms.php" class="btn btn-outline-light"><i class="bi bi-file-text me-1"></i>Terms</a>
-            <a href="privacy-policy.php" class="btn btn-outline-light"><i class="bi bi-shield-check me-1"></i>Privacy Policy</a>
+            <a href="<?= BASE_URL ?>faq.php" class="btn btn-outline-light"><i class="bi bi-question-circle me-1"></i>Read FAQ</a>
+            <a href="<?= BASE_URL ?>terms.php" class="btn btn-outline-light"><i class="bi bi-file-text me-1"></i>Terms</a>
+            <a href="<?= BASE_URL ?>privacy-policy.php" class="btn btn-outline-light"><i class="bi bi-shield-check me-1"></i>Privacy Policy</a>
         </div>
     </div>
 </main>

@@ -1,6 +1,7 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once '../includes/db.php';
+require_once '../includes/config.php';
 
 // --- Input ---
 $gameId = isset($_GET['game_id']) ? (int)$_GET['game_id'] : 0;
@@ -362,7 +363,7 @@ while ($r = $res->fetch_assoc()) {
 <body>
   <div class="character-page">
     <div class="container">
-      <a class="back-button" href="/1hnd/gametracker/games/game-detail.php?id=<?= (int)$game['id'] ?>">
+      <a class="back-button" href="<?= BASE_URL ?>games/game-detail.php?id=<?= (int)$game['id'] ?>">
         <i class="fas fa-arrow-left"></i>
         Back to Game
       </a>
@@ -377,7 +378,7 @@ while ($r = $res->fetch_assoc()) {
           <i class="fas fa-users" style="font-size: 4rem; color: #a8a8b3; margin-bottom: 1.5rem;"></i>
           <h3>No Characters Found</h3>
           <p>No characters have been added to the database for this game yet.</p>
-          <a class="sync-button" href="/1hnd/gametracker/auth/sync-characters.php?game_id=<?= (int)$game['id'] ?>">
+          <a class="sync-button" href="<?= BASE_URL ?>auth/sync-characters.php?game_id=<?= (int)$game['id'] ?>">
             <i class="fas fa-sync-alt"></i>
             Sync Characters
           </a>

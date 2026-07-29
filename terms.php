@@ -338,7 +338,7 @@ session_start();
             <div class="terms-section" id="contact">
                 <div class="highlight-box">
                     <h2>Contact Information</h2>
-                    <p>Due to me not revealing my identity, an email address is not given out. For any questions about these Terms of Service, please use the support page <a href="support.php">here</a> and I will get back to you as soon as possible.</p>
+                    <p>Due to me not revealing my identity, an email address is not given out. For any questions about these Terms of Service, please use the support page <a href="<?= BASE_URL ?>support.php">here</a> and I will get back to you as soon as possible.</p>
                 </div>
             </div>
 
