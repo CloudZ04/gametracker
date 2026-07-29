@@ -149,6 +149,7 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
             backdrop-filter: blur(10px);
             border-radius: 1rem;
             margin-top: 2rem;
+            margin-bottom: 1.5rem;
             padding: 2rem;
             border: 1px solid rgba(127, 0, 255, 0.2);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -381,7 +382,7 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
     background: linear-gradient(135deg, rgba(21, 21, 30, 0.8) 0%, rgba(26, 26, 38, 0.8) 100%);
     border-radius: 12px 12px 0 0;
     padding: 0.5rem 1rem 0;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
     position: relative;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -567,7 +568,7 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
 
 /* Smooth transitions for tab switching */
 .tab-content {
-    animation: fadeIn 0.3s ease-in-out;
+    /* animation applied inside .tab-panels-wrapper */
 }
 
 @keyframes fadeIn {
@@ -581,15 +582,23 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
     }
 }
 
-/* Enhanced container styling to match */
-.nav-tabs + .tab-content {
+/* All tab panels share one connected card that sits flush below the nav tabs */
+.tab-panels-wrapper {
     background: rgba(21, 21, 30, 0.6);
     border-radius: 0 0 12px 12px;
-    padding: 2rem;
+    padding: 1.5rem 2rem 2rem;
     border: 1px solid rgba(178, 0, 255, 0.1);
     border-top: none;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    margin-top: 0;
+}
+.tab-panels-wrapper .tab-content > .my-5 {
+    margin-top: 0 !important;
+    margin-bottom: 1.5rem !important;
+}
+.tab-panels-wrapper .tab-content {
+    animation: fadeIn 0.3s ease-in-out;
 }
         
         .activity-card {
@@ -1912,7 +1921,8 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
         <?php endif; ?>
     </ul>
 
-    <!-- Tab Content -->
+    <!-- Tab Content Wrapper — shared card container for all tabs -->
+    <div class="tab-panels-wrapper">
     <div id="profile-content" class="tab-content" style="display: block;">
         <!-- Collections Section -->
         <div class="my-5">
@@ -2415,6 +2425,7 @@ $steamId = $steamResult->fetch_assoc()['steam_id'] ?? null;
             </div>
         </div>
     </div>
+    </div><!-- /.tab-panels-wrapper -->
 </div>
 
 <!-- Edit Profile Modal -->
