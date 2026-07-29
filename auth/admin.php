@@ -194,6 +194,9 @@ $new_users_month = $conn->query("SELECT COUNT(*) FROM users WHERE created_at >= 
                     <button type="button" class="btn btn-outline-light" id="scanDlcsDryRunBtn">
                         <i class="bi bi-search me-2"></i>DLC Dry Run
                     </button>
+                    <a href="manage-characters.php" class="btn btn-primary">
+                        <i class="bi bi-people me-2"></i>Manage Characters
+                    </a>
                     <a href="logout.php" class="btn btn-outline-light">
                         <i class="bi bi-box-arrow-right me-2"></i>Logout
                     </a>
