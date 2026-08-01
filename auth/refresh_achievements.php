@@ -38,6 +38,8 @@ try {
             'updated' => $result['updated'] ?? 0,
             'skipped' => $result['skipped'] ?? 0,
             'checked' => $result['checked'] ?? 0,
+            'updated_titles' => $result['updated_titles'] ?? [],
+            'skipped_details' => $result['skipped_details'] ?? [],
             'message' => $result['message'] ?? 'Achievements refreshed.',
         ]);
     } else {

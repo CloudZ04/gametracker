@@ -46,30 +46,33 @@ function fetchSteamAchievements($steamId, $appId, $apiKey) {
     }
     $schemaData = json_decode($schema, true);
     
-    // Merge achievement data
+    // Merge achievement data (schema is optional enrichment — player stats alone are enough)
     $achievements = [];
-    if (isset($playerAchData['playerstats']['achievements']) && isset($schemaData['game']['availableGameStats']['achievements'])) {
-        $schemaAchievements = [];
+    if (empty($playerAchData['playerstats']['achievements']) || !is_array($playerAchData['playerstats']['achievements'])) {
+        writeLog("Missing player achievements for app {$appId}. error=" . ($playerAchData['playerstats']['error'] ?? 'none'));
+        return [];
+    }
+
+    $schemaAchievements = [];
+    if (!empty($schemaData['game']['availableGameStats']['achievements']) && is_array($schemaData['game']['availableGameStats']['achievements'])) {
         foreach ($schemaData['game']['availableGameStats']['achievements'] as $ach) {
             $schemaAchievements[$ach['name']] = $ach;
         }
-        
-        foreach ($playerAchData['playerstats']['achievements'] as $ach) {
-            $schema = $schemaAchievements[$ach['apiname']] ?? [];
-            $achievements[] = [
-                'api_name' => $ach['apiname'],
-                'name' => $schema['displayName'] ?? $ach['apiname'],
-                'description' => $schema['description'] ?? '',
-                'icon' => $schema['icon'] ?? '',
-                'unlocked' => $ach['achieved'],
-                'unlock_time' => $ach['unlocktime'] > 0 ? date('Y-m-d H:i:s', $ach['unlocktime']) : null
-            ];
-        }
     } else {
-        writeLog("Missing achievement data in response. Player achievements exists: " . 
-                 (isset($playerAchData['playerstats']['achievements']) ? 'yes' : 'no') . 
-                 ", Schema achievements exists: " . 
-                 (isset($schemaData['game']['availableGameStats']['achievements']) ? 'yes' : 'no'));
+        writeLog("Schema missing for app {$appId}; saving with API names only");
+    }
+
+    foreach ($playerAchData['playerstats']['achievements'] as $ach) {
+        $schema = $schemaAchievements[$ach['apiname']] ?? [];
+        $unlockTs = (int)($ach['unlocktime'] ?? 0);
+        $achievements[] = [
+            'api_name' => $ach['apiname'],
+            'name' => $schema['displayName'] ?? $ach['apiname'],
+            'description' => $schema['description'] ?? '',
+            'icon' => $schema['icon'] ?? '',
+            'unlocked' => (int)($ach['achieved'] ?? 0),
+            'unlock_time' => $unlockTs > 0 ? date('Y-m-d H:i:s', $unlockTs) : null
+        ];
     }
     
     writeLog("Processed " . count($achievements) . " achievements");
@@ -123,7 +126,7 @@ function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey, 
         $stmt->bind_param("ii", $userId, $gameId);
         $stmt->execute();
         
-        // Insert new achievements
+        // Insert new achievements (unlock_time NULL for locked achievements — empty string breaks DATETIME inserts)
         $stmt = $conn->prepare("INSERT INTO steam_achievements (game_id, user_id, achievement_api_name, achievement_name, achievement_description, achievement_icon, unlocked, unlock_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         
         $totalAchievements = count($achievements);
@@ -133,13 +136,10 @@ function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey, 
             $name = (string)$ach['name'];
             $description = (string)($ach['description'] ?? '');
             $icon = (string)($ach['icon'] ?? '');
-            $unlocked = (string)((int)!empty($ach['unlocked']));
-            $unlockTime = $ach['unlock_time'] ?? null;
-            if ($unlockTime === null) {
-                $unlockTime = '';
-            }
+            $unlocked = (int)!empty($ach['unlocked']);
+            $unlockTime = !empty($ach['unlock_time']) ? (string)$ach['unlock_time'] : null;
 
-            $stmt->bind_param("iissssss", 
+            $stmt->bind_param("iissssis", 
                 $gameId,
                 $userId,
                 $apiName,
@@ -149,7 +149,9 @@ function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey, 
                 $unlocked,
                 $unlockTime
             );
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new Exception('Insert failed for ' . $apiName . ': ' . $stmt->error);
+            }
         }
         
         // Update achievement stats
@@ -221,11 +223,14 @@ function updateAllSteamAchievements($conn, $userId) {
     $updated = 0;
     $skipped = 0;
     $checked = count($games);
+    $updatedTitles = [];
+    $skippedDetails = [];
 
     foreach ($games as $game) {
         $steamAppId = (int)$game['steam_app_id'];
         if ($steamAppId <= 0) {
             $skipped++;
+            $skippedDetails[] = ['title' => $game['title'], 'reason' => 'invalid_steam_app_id'];
             continue;
         }
 
@@ -234,8 +239,10 @@ function updateAllSteamAchievements($conn, $userId) {
 
         if ($status === 'updated') {
             $updated++;
+            $updatedTitles[] = $game['title'];
         } else {
             $skipped++;
+            $skippedDetails[] = ['title' => $game['title'], 'reason' => $status, 'steam_app_id' => $steamAppId];
         }
 
         // Small delay to be polite to Steam's API
@@ -248,6 +255,8 @@ function updateAllSteamAchievements($conn, $userId) {
         'updated' => $updated,
         'skipped' => $skipped,
         'checked' => $checked,
+        'updated_titles' => $updatedTitles,
+        'skipped_details' => array_slice($skippedDetails, 0, 20),
         'message' => "Updated {$updated} collection game(s), skipped {$skipped}. Existing achievements outside collections were kept.",
     ];
 } 
