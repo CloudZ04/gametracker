@@ -46,7 +46,7 @@ function fetchSteamAchievements($steamId, $appId, $apiKey) {
     }
     $schemaData = json_decode($schema, true);
     
-    // Merge achievement data (schema is optional enrichment — player stats alone are enough)
+    
     $achievements = [];
     if (empty($playerAchData['playerstats']['achievements']) || !is_array($playerAchData['playerstats']['achievements'])) {
         writeLog("Missing player achievements for app {$appId}. error=" . ($playerAchData['playerstats']['error'] ?? 'none'));
@@ -202,11 +202,15 @@ function updateAllSteamAchievements($conn, $userId) {
     $steamId = $row['steam_id'];
     writeLog("Found Steam ID: $steamId");
     
-    // Only games in this user's collection with a usable Steam app id
+    // Only games in this user's collection with a usable Steam app id.
+    // Also pull existing completion so 100% games can be skipped without hitting Steam.
     $stmt = $conn->prepare("
-        SELECT DISTINCT g.id, g.steam_app_id, g.title
+        SELECT DISTINCT g.id, g.steam_app_id, g.title,
+               sas.total_achievements, sas.unlocked_achievements, sas.completion_percentage
         FROM user_game_status ugs
         JOIN games g ON g.id = ugs.game_id
+        LEFT JOIN steam_achievement_stats sas
+            ON sas.game_id = g.id AND sas.user_id = ugs.user_id
         WHERE ugs.user_id = ?
           AND g.steam_app_id IS NOT NULL
           AND g.steam_app_id != ''
@@ -231,6 +235,24 @@ function updateAllSteamAchievements($conn, $userId) {
         if ($steamAppId <= 0) {
             $skipped++;
             $skippedDetails[] = ['title' => $game['title'], 'reason' => 'invalid_steam_app_id'];
+            continue;
+        }
+
+        $total = (int)($game['total_achievements'] ?? 0);
+        $unlocked = (int)($game['unlocked_achievements'] ?? 0);
+        $completion = (float)($game['completion_percentage'] ?? 0);
+        $alreadyComplete = $total > 0 && ($unlocked >= $total || $completion >= 100);
+
+        // Skip 100% games — no Steam API call needed
+        if ($alreadyComplete) {
+            $skipped++;
+            $skippedDetails[] = [
+                'title' => $game['title'],
+                'reason' => 'already_complete',
+                'steam_app_id' => $steamAppId,
+                'progress' => "{$unlocked}/{$total}",
+            ];
+            writeLog("Skipping {$game['title']} — already 100% ({$unlocked}/{$total})");
             continue;
         }
 
