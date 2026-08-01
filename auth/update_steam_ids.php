@@ -4,6 +4,9 @@ require_once '../includes/config.php';
 require_once '../includes/steam_helpers.php';
 session_start();
 
+@set_time_limit(300);
+@ini_set('memory_limit', '512M');
+
 // Ensure clean output buffer
 if (ob_get_level()) ob_end_clean();
 header('Content-Type: application/json');
@@ -15,20 +18,24 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 try {
-    // STEAM_API_KEY is defined in includes/config.php
-    $count = findAndUpdateSteamIds($conn, STEAM_API_KEY);
-    
-    if ($count === false) {
-        echo json_encode([
-            'success' => false,
-            'error' => 'Failed to update Steam IDs. Check steam_debug.log for details.'
-        ]);
-    } else {
-        echo json_encode([
-            'success' => true,
-            'message' => "Updated $count games with Steam App IDs"
-        ]);
-    }
+    $result = findAndUpdateSteamIds($conn, STEAM_API_KEY);
+
+    $updated = (int)($result['updated'] ?? 0);
+    $total = (int)($result['total'] ?? 0);
+    $exact = (int)($result['exact'] ?? 0);
+    $fuzzy = (int)($result['fuzzy'] ?? 0);
+    $unmatchedCount = count($result['unmatched'] ?? []);
+
+    echo json_encode([
+        'success' => true,
+        'message' => "Updated $updated of $total games ($exact exact, $fuzzy fuzzy, $unmatchedCount unmatched)",
+        'updated' => $updated,
+        'total' => $total,
+        'exact' => $exact,
+        'fuzzy' => $fuzzy,
+        'unmatched' => $result['unmatched'] ?? [],
+        'updated_titles' => $result['updated_titles'] ?? [],
+    ]);
 } catch (Throwable $e) {
     error_log("Error updating Steam IDs: " . $e->getMessage());
     echo json_encode([
@@ -36,4 +43,4 @@ try {
         'error' => 'Error updating Steam IDs: ' . $e->getMessage()
     ]);
 }
-exit(); 
+exit();

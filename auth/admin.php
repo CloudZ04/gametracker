@@ -357,9 +357,13 @@ $new_users_month = $conn->query("SELECT COUNT(*) FROM users WHERE created_at >= 
         fetch('update_steam_ids.php')
             .then(response => response.json())
             .then(data => {
+                console.log('Steam ID update result:', data);
                 if (data.success) {
                     showToast(data.message, 'success');
-                    location.reload();
+                    if (data.unmatched && data.unmatched.length) {
+                        console.warn('Unmatched titles:', data.unmatched);
+                    }
+                    setTimeout(() => location.reload(), 1500);
                 } else {
                     showToast('Failed to update Steam IDs: ' + (data.error || 'Unknown error'), 'error');
                 }

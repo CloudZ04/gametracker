@@ -283,63 +283,187 @@ function updateAllSteamAchievements($conn, $userId) {
     ];
 } 
 
-function searchSteamGame($title, $apiKey) {
-    writeLog("Searching Steam for game: $title");
-    
-    try {
-        // First try the Steam Store API
-        $searchUrl = "https://api.steampowered.com/ISteamApps/GetAppList/v2/";
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 30,
-                'user_agent' => 'GameTracker/1.0'
-            ]
-        ]);
-        
-        $response = @file_get_contents($searchUrl, false, $context);
-        if ($response === false) {
-            writeLog("Error fetching Steam app list: " . error_get_last()['message']);
-            return null;
+/**
+ * Known junk / placeholder Steam App IDs that should be re-matched.
+ */
+function isBadSteamAppId($steamAppId) {
+    if ($steamAppId === null) {
+        return true;
+    }
+    $id = trim((string)$steamAppId);
+    if ($id === '' || $id === '0') {
+        return true;
+    }
+    // Known placeholder / wrong IDs (Steam "Free to Play" demo junk, etc.)
+    $junk = ['17760'];
+    return in_array($id, $junk, true);
+}
+
+function normalizeSteamTitle($title) {
+    $t = strtolower(trim((string)$title));
+    // Normalize common edition / trademark noise
+    $t = str_replace(['™', '®', '©'], '', $t);
+    $t = preg_replace('/[^\w\s]/', ' ', $t);
+    $t = preg_replace('/\s+/', ' ', $t);
+    return trim($t);
+}
+
+/**
+ * Download Steam's full app list once. Returns array of ['appid'=>..., 'name'=>...].
+ */
+function fetchSteamAppList() {
+    writeLog("Downloading Steam app list (once)");
+    $url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/";
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 120,
+            'user_agent' => 'GameTracker/1.0'
+        ]
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        $err = error_get_last();
+        throw new Exception('Failed to download Steam app list: ' . ($err['message'] ?? 'unknown error'));
+    }
+
+    $data = json_decode($response, true);
+    if (!$data || !isset($data['applist']['apps']) || !is_array($data['applist']['apps'])) {
+        throw new Exception('Invalid Steam app list response');
+    }
+
+    writeLog("Steam app list downloaded: " . count($data['applist']['apps']) . " apps");
+    return $data['applist']['apps'];
+}
+
+/**
+ * Build normalized-title => candidates map for fast exact lookups.
+ */
+function buildSteamAppExactIndex(array $apps) {
+    $index = [];
+    foreach ($apps as $app) {
+        if (empty($app['name']) || empty($app['appid'])) {
+            continue;
         }
-        
-        $data = json_decode($response, true);
-        if (!$data || !isset($data['applist']['apps'])) {
-            writeLog("Invalid response format from Steam API");
-            return null;
+        $norm = normalizeSteamTitle($app['name']);
+        if ($norm === '') {
+            continue;
         }
-        
-        // Clean up the search title
-        $searchTitle = strtolower(trim($title));
-        $searchTitle = preg_replace('/[^\w\s]/', '', $searchTitle);
-        
-        // Search for exact or close matches
-        $matches = [];
-        foreach ($data['applist']['apps'] as $app) {
-            if (empty($app['name']) || empty($app['appid'])) continue;
-            
-            $appTitle = strtolower(trim($app['name']));
-            $appTitle = preg_replace('/[^\w\s]/', '', $appTitle);
-            
-            if ($appTitle === $searchTitle) {
-                // Exact match
-                writeLog("Found exact match: {$app['appid']} - {$app['name']}");
-                return (string)$app['appid']; // Convert to string to ensure clean JSON
-            }
-            
-            // Check if the search title is contained in the app title
-            if (strpos($appTitle, $searchTitle) !== false || strpos($searchTitle, $appTitle) !== false) {
-                $matches[] = $app;
-            }
-        }
-        
-        // If we found matches, return the first one
-        if (!empty($matches)) {
-            writeLog("Found similar match: {$matches[0]['appid']} - {$matches[0]['name']}");
-            return (string)$matches[0]['appid']; // Convert to string to ensure clean JSON
-        }
-        
-        writeLog("No matches found for: $title");
+        $index[$norm][] = [
+            'appid' => (string)$app['appid'],
+            'name' => $app['name'],
+        ];
+    }
+    return $index;
+}
+
+/**
+ * Match a local game title against a preloaded Steam app list.
+ * Returns ['appid'=>string, 'name'=>string, 'match'=>'exact'|'fuzzy'] or null.
+ */
+function matchSteamAppFromList($title, array $apps, array $exactIndex = null) {
+    $search = normalizeSteamTitle($title);
+    if ($search === '') {
         return null;
+    }
+
+    if ($exactIndex === null) {
+        $exactIndex = buildSteamAppExactIndex($apps);
+    }
+
+    // 1) Exact normalized match
+    if (isset($exactIndex[$search])) {
+        $best = $exactIndex[$search][0];
+        // Prefer the shortest Steam name among exact normalized hits (usually the base game)
+        foreach ($exactIndex[$search] as $candidate) {
+            if (strlen($candidate['name']) < strlen($best['name'])) {
+                $best = $candidate;
+            }
+        }
+        writeLog("Exact match for \"$title\": {$best['appid']} - {$best['name']}");
+        return [
+            'appid' => $best['appid'],
+            'name' => $best['name'],
+            'match' => 'exact',
+        ];
+    }
+
+    // 2) Fuzzy: require high length similarity; avoid tiny substring traps
+    $searchLen = strlen($search);
+    if ($searchLen < 3) {
+        return null;
+    }
+
+    $best = null;
+    $bestScore = 0.0;
+
+    foreach ($apps as $app) {
+        if (empty($app['name']) || empty($app['appid'])) {
+            continue;
+        }
+        $appTitle = normalizeSteamTitle($app['name']);
+        if ($appTitle === '') {
+            continue;
+        }
+        $appLen = strlen($appTitle);
+
+        // Skip if neither contains the other
+        if (strpos($appTitle, $search) === false && strpos($search, $appTitle) === false) {
+            continue;
+        }
+
+        // Reject very short side of a containment match (e.g. "Halo" vs "Halo Infinite")
+        $minLen = min($searchLen, $appLen);
+        $maxLen = max($searchLen, $appLen);
+        if ($minLen < 5 && $minLen !== $maxLen) {
+            continue;
+        }
+
+        $lenRatio = $minLen / $maxLen;
+        if ($lenRatio < 0.75) {
+            continue;
+        }
+
+        // similar_text as a secondary quality signal
+        similar_text($search, $appTitle, $pct);
+        $score = ($lenRatio * 0.55) + (($pct / 100) * 0.45);
+
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $best = [
+                'appid' => (string)$app['appid'],
+                'name' => $app['name'],
+                'match' => 'fuzzy',
+                'score' => $score,
+            ];
+        }
+    }
+
+    // Require a reasonably confident fuzzy match
+    if ($best !== null && $bestScore >= 0.82) {
+        writeLog(sprintf(
+            'Fuzzy match for "%s": %s - %s (score %.2f)',
+            $title,
+            $best['appid'],
+            $best['name'],
+            $bestScore
+        ));
+        return $best;
+    }
+
+    writeLog("No match for: $title");
+    return null;
+}
+
+/**
+ * Single-title lookup (downloads app list). Prefer matchSteamAppFromList in bulk flows.
+ */
+function searchSteamGame($title, $apiKey = null) {
+    writeLog("Searching Steam for game: $title");
+    try {
+        $apps = fetchSteamAppList();
+        $match = matchSteamAppFromList($title, $apps);
+        return $match ? $match['appid'] : null;
     } catch (Exception $e) {
         writeLog("Error in searchSteamGame: " . $e->getMessage());
         return null;
@@ -349,17 +473,17 @@ function searchSteamGame($title, $apiKey) {
 function updateGameSteamId($conn, $gameId, $steamAppId) {
     try {
         writeLog("Updating game $gameId with Steam App ID: $steamAppId");
-        
+
         $stmt = $conn->prepare("UPDATE games SET steam_app_id = ? WHERE id = ?");
         $stmt->bind_param("si", $steamAppId, $gameId);
         $success = $stmt->execute();
-        
+
         if ($success) {
             writeLog("Successfully updated game with Steam App ID");
         } else {
             writeLog("Failed to update game with Steam App ID: " . $conn->error);
         }
-        
+
         return $success;
     } catch (Exception $e) {
         writeLog("Error in updateGameSteamId: " . $e->getMessage());
@@ -367,42 +491,80 @@ function updateGameSteamId($conn, $gameId, $steamAppId) {
     }
 }
 
-function findAndUpdateSteamIds($conn, $apiKey) {
-    try {
-        writeLog("Starting bulk Steam ID update");
-        
-        // Get all games without Steam App IDs
-        $stmt = $conn->prepare("SELECT id, title FROM games WHERE steam_app_id IS NULL");
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        $updateCount = 0;
-        $totalGames = $result->num_rows;
-        writeLog("Found $totalGames games without Steam App IDs");
-        
-        while ($game = $result->fetch_assoc()) {
-            try {
-                writeLog("Processing game: {$game['title']}");
-                $steamAppId = searchSteamGame($game['title'], $apiKey);
-                
-                if ($steamAppId) {
-                    if (updateGameSteamId($conn, $game['id'], $steamAppId)) {
-                        $updateCount++;
-                    }
-                }
-                
-                // Add a small delay to avoid rate limiting
-                usleep(100000); // 100ms delay
-            } catch (Exception $e) {
-                writeLog("Error processing game {$game['title']}: " . $e->getMessage());
-                continue; // Skip this game but continue with others
-            }
-        }
-        
-        writeLog("Updated $updateCount out of $totalGames games with Steam App IDs");
-        return $updateCount;
-    } catch (Exception $e) {
-        writeLog("Error in findAndUpdateSteamIds: " . $e->getMessage());
-        throw $e; // Re-throw to be caught by the main error handler
+/**
+ * Fill missing/junk steam_app_id values by matching against Steam's app list (downloaded once).
+ * Returns an associative result array (not just a count).
+ */
+function findAndUpdateSteamIds($conn, $apiKey = null) {
+    writeLog("Starting bulk Steam ID update");
+
+    $apps = fetchSteamAppList();
+    $exactIndex = buildSteamAppExactIndex($apps);
+
+    // Missing, empty, zero, or known junk IDs — leave valid IDs alone
+    $sql = "SELECT id, title, steam_app_id
+            FROM games
+            WHERE steam_app_id IS NULL
+               OR TRIM(steam_app_id) = ''
+               OR TRIM(steam_app_id) = '0'
+               OR TRIM(steam_app_id) = '17760'";
+    $result = $conn->query($sql);
+    if (!$result) {
+        throw new Exception('Failed to query games needing Steam IDs: ' . $conn->error);
     }
-} 
+
+    $total = $result->num_rows;
+    $updated = 0;
+    $exact = 0;
+    $fuzzy = 0;
+    $unmatched = [];
+    $updatedTitles = [];
+
+    writeLog("Found $total games needing Steam App IDs");
+
+    while ($game = $result->fetch_assoc()) {
+        try {
+            writeLog("Processing game: {$game['title']} (current: " . ($game['steam_app_id'] ?? 'NULL') . ")");
+            $match = matchSteamAppFromList($game['title'], $apps, $exactIndex);
+
+            if (!$match) {
+                $unmatched[] = $game['title'];
+                continue;
+            }
+
+            // Don't "update" to the same junk/same value
+            if ((string)$game['steam_app_id'] === (string)$match['appid']) {
+                continue;
+            }
+
+            if (updateGameSteamId($conn, (int)$game['id'], $match['appid'])) {
+                $updated++;
+                if (($match['match'] ?? '') === 'exact') {
+                    $exact++;
+                } else {
+                    $fuzzy++;
+                }
+                $updatedTitles[] = [
+                    'title' => $game['title'],
+                    'steam_app_id' => $match['appid'],
+                    'steam_name' => $match['name'],
+                    'match' => $match['match'],
+                ];
+            }
+        } catch (Exception $e) {
+            writeLog("Error processing game {$game['title']}: " . $e->getMessage());
+            continue;
+        }
+    }
+
+    writeLog("Updated $updated / $total games with Steam App IDs (exact=$exact, fuzzy=$fuzzy, unmatched=" . count($unmatched) . ")");
+
+    return [
+        'updated' => $updated,
+        'total' => $total,
+        'exact' => $exact,
+        'fuzzy' => $fuzzy,
+        'unmatched' => $unmatched,
+        'updated_titles' => $updatedTitles,
+    ];
+}
