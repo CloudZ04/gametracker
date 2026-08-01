@@ -32,18 +32,19 @@ function fetchSteamAchievements($steamId, $appId, $apiKey) {
         return null;
     }
     $playerAchData = json_decode($playerAch, true);
-    writeLog("Player achievements response: " . print_r($playerAchData, true));
+    if (!empty($playerAchData['playerstats']['error'])) {
+        writeLog("Steam player achievements error for app {$appId}: " . $playerAchData['playerstats']['error']);
+    }
     
     // Get achievement schema (names, descriptions, icons)
     $schemaUrl = "https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={$apiKey}&appid={$appId}";
-    writeLog("Fetching from URL: $schemaUrl");
+    writeLog("Fetching schema for app {$appId}");
     $schema = @file_get_contents($schemaUrl);
     if ($schema === false) {
         writeLog("Error fetching achievement schema: " . error_get_last()['message']);
         return null;
     }
     $schemaData = json_decode($schema, true);
-    writeLog("Schema response: " . print_r($schemaData, true));
     
     // Merge achievement data
     $achievements = [];
@@ -75,7 +76,7 @@ function fetchSteamAchievements($steamId, $appId, $apiKey) {
     return $achievements;
 }
 
-function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey) {
+function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey, $requireUnlocked = false) {
     writeLog("Updating achievements for User ID: $userId, Game ID: $gameId, Steam App ID: $steamAppId");
     
     $steamId = null;
@@ -90,22 +91,34 @@ function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey) 
     }
     if (!$steamId) {
         writeLog("No Steam ID found for user $userId");
-        return false;
+        return 'no_steam_id';
     }
     
     // Fetch achievements from Steam
     $achievements = fetchSteamAchievements($steamId, $steamAppId, $apiKey);
-    if (!$achievements) {
+    if (!$achievements || count($achievements) === 0) {
         writeLog("No achievements fetched for game $steamAppId");
-        return false;
+        return 'no_data';
+    }
+
+    $unlockedCount = 0;
+    foreach ($achievements as $ach) {
+        if (!empty($ach['unlocked'])) $unlockedCount++;
+    }
+
+    // Option A: only write when the user has unlocked at least one achievement.
+    // Important: do NOT delete existing rows when skipping.
+    if ($requireUnlocked && $unlockedCount < 1) {
+        writeLog("Skipping game $steamAppId — 0 unlocked achievements (existing data kept)");
+        return 'skipped_no_unlocks';
     }
     
-    writeLog("Processing " . count($achievements) . " achievements for game $steamAppId");
+    writeLog("Processing " . count($achievements) . " achievements for game $steamAppId ({$unlockedCount} unlocked)");
     
     // Begin transaction
     $conn->begin_transaction();
     try {
-        // Clear existing achievements for this user/game
+        // Replace achievements for THIS user/game only
         $stmt = $conn->prepare("DELETE FROM steam_achievements WHERE user_id = ? AND game_id = ?");
         $stmt->bind_param("ii", $userId, $gameId);
         $stmt->execute();
@@ -114,22 +127,29 @@ function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey) 
         $stmt = $conn->prepare("INSERT INTO steam_achievements (game_id, user_id, achievement_api_name, achievement_name, achievement_description, achievement_icon, unlocked, unlock_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         
         $totalAchievements = count($achievements);
-        $unlockedCount = 0;
         
         foreach ($achievements as $ach) {
+            $apiName = (string)$ach['api_name'];
+            $name = (string)$ach['name'];
+            $description = (string)($ach['description'] ?? '');
+            $icon = (string)($ach['icon'] ?? '');
+            $unlocked = (string)((int)!empty($ach['unlocked']));
+            $unlockTime = $ach['unlock_time'] ?? null;
+            if ($unlockTime === null) {
+                $unlockTime = '';
+            }
+
             $stmt->bind_param("iissssss", 
                 $gameId,
                 $userId,
-                $ach['api_name'],
-                $ach['name'],
-                $ach['description'],
-                $ach['icon'],
-                $ach['unlocked'],
-                $ach['unlock_time']
+                $apiName,
+                $name,
+                $description,
+                $icon,
+                $unlocked,
+                $unlockTime
             );
             $stmt->execute();
-            
-            if ($ach['unlocked']) $unlockedCount++;
         }
         
         // Update achievement stats
@@ -146,46 +166,90 @@ function updateSteamAchievements($conn, $userId, $gameId, $steamAppId, $apiKey) 
         
         $conn->commit();
         writeLog("Successfully updated achievements for game $steamAppId");
-        return true;
+        return 'updated';
     } catch (Exception $e) {
         $conn->rollback();
         writeLog("Error updating Steam achievements: " . $e->getMessage());
-        return false;
+        return 'error';
     }
 }
 
+/**
+ * Refresh achievements for games in the user's collection only.
+ * Existing achievement rows for games outside the collection are left untouched.
+ * Only writes/updates a game when Steam reports 1+ unlocked achievements.
+ */
 function updateAllSteamAchievements($conn, $userId) {
-    writeLog("Updating all achievements for User ID: $userId");
+    writeLog("Updating collection achievements for User ID: $userId");
     
     // Get user's Steam ID
     $stmt = $conn->prepare("SELECT steam_id FROM users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
-    if (!($row = $result->fetch_assoc())) {
+    if (!($row = $result->fetch_assoc()) || empty($row['steam_id'])) {
         writeLog("No Steam ID found for user $userId");
-        return false;
+        return [
+            'success' => false,
+            'updated' => 0,
+            'skipped' => 0,
+            'checked' => 0,
+            'message' => 'No Steam ID found for user',
+        ];
     }
     $steamId = $row['steam_id'];
     writeLog("Found Steam ID: $steamId");
     
-    // Get all games with Steam App IDs
-    $stmt = $conn->prepare("SELECT id, steam_app_id FROM games WHERE steam_app_id IS NOT NULL");
+    // Only games in this user's collection with a usable Steam app id
+    $stmt = $conn->prepare("
+        SELECT DISTINCT g.id, g.steam_app_id, g.title
+        FROM user_game_status ugs
+        JOIN games g ON g.id = ugs.game_id
+        WHERE ugs.user_id = ?
+          AND g.steam_app_id IS NOT NULL
+          AND g.steam_app_id != ''
+          AND g.steam_app_id != '0'
+          AND g.steam_app_id != '17760'
+        ORDER BY g.title ASC
+    ");
+    $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
     $games = $result->fetch_all(MYSQLI_ASSOC);
-    writeLog("Found " . count($games) . " games with Steam App IDs");
-    
-    $successCount = 0;
+    writeLog("Found " . count($games) . " collection games with Steam App IDs");
+
+    $updated = 0;
+    $skipped = 0;
+    $checked = count($games);
+
     foreach ($games as $game) {
-        writeLog("Processing game ID: {$game['id']}, Steam App ID: {$game['steam_app_id']}");
-        if (updateSteamAchievements($conn, $userId, $game['id'], $game['steam_app_id'], STEAM_API_KEY)) {
-            $successCount++;
+        $steamAppId = (int)$game['steam_app_id'];
+        if ($steamAppId <= 0) {
+            $skipped++;
+            continue;
         }
+
+        writeLog("Processing collection game ID: {$game['id']} ({$game['title']}), Steam App ID: {$steamAppId}");
+        $status = updateSteamAchievements($conn, $userId, (int)$game['id'], $steamAppId, STEAM_API_KEY, true);
+
+        if ($status === 'updated') {
+            $updated++;
+        } else {
+            $skipped++;
+        }
+
+        // Small delay to be polite to Steam's API
+        usleep(150000);
     }
     
-    writeLog("Successfully updated achievements for $successCount out of " . count($games) . " games");
-    return $successCount > 0;
+    writeLog("Collection refresh complete: updated {$updated}, skipped {$skipped}, checked {$checked}");
+    return [
+        'success' => true,
+        'updated' => $updated,
+        'skipped' => $skipped,
+        'checked' => $checked,
+        'message' => "Updated {$updated} collection game(s), skipped {$skipped}. Existing achievements outside collections were kept.",
+    ];
 } 
 
 function searchSteamGame($title, $apiKey) {

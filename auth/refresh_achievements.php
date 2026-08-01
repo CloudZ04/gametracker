@@ -8,6 +8,9 @@ session_start();
 if (ob_get_level()) ob_end_clean();
 header('Content-Type: application/json');
 
+@set_time_limit(180);
+ignore_user_abort(true);
+
 // Security check
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'error' => 'Not authenticated']);
@@ -27,17 +30,20 @@ if (empty($steamId)) {
 }
 
 try {
-    // STEAM_API_KEY is defined in includes/config.php
+    $result = updateAllSteamAchievements($conn, $_SESSION['user_id']);
 
-    // Update achievements for all games
-    $success = updateAllSteamAchievements($conn, $_SESSION['user_id']);
-
-    if ($success) {
-        echo json_encode(['success' => true]);
+    if (!empty($result['success'])) {
+        echo json_encode([
+            'success' => true,
+            'updated' => $result['updated'] ?? 0,
+            'skipped' => $result['skipped'] ?? 0,
+            'checked' => $result['checked'] ?? 0,
+            'message' => $result['message'] ?? 'Achievements refreshed.',
+        ]);
     } else {
         echo json_encode([
             'success' => false,
-            'error' => 'Failed to update achievements. Check steam_debug.log for details.'
+            'error' => $result['message'] ?? 'Failed to update achievements.',
         ]);
     }
 } catch (Throwable $e) {
@@ -47,4 +53,4 @@ try {
         'error' => 'Error refreshing achievements: ' . $e->getMessage()
     ]);
 }
-exit(); 
+exit();

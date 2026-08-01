@@ -3123,13 +3123,16 @@ function refreshAchievements() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                showToast(data.message || 'Achievements refreshed', 'success', 5000);
+                setTimeout(() => location.reload(), 800);
             } else {
-                showToast('Failed to refresh achievements: ' + data.error, 'error');
+                showToast('Failed to refresh achievements: ' + (data.error || 'Unknown error'), 'error');
+                button.disabled = false;
+                button.innerHTML = originalHtml;
             }
         })
-        .catch(() => showToast('Failed to refresh achievements', 'error'))
-        .finally(() => {
+        .catch(() => {
+            showToast('Failed to refresh achievements', 'error');
             button.disabled = false;
             button.innerHTML = originalHtml;
         });
