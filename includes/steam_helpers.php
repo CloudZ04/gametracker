@@ -309,31 +309,93 @@ function normalizeSteamTitle($title) {
 }
 
 /**
- * Download Steam's full app list once. Returns array of ['appid'=>..., 'name'=>...].
+ * Download Steam's full game list once (paginated).
+ * Valve removed ISteamApps/GetAppList/v2 — use IStoreService/GetAppList/v1 (requires API key).
+ * Returns array of ['appid'=>..., 'name'=>...].
  */
-function fetchSteamAppList() {
-    writeLog("Downloading Steam app list (once)");
-    $url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/";
+function fetchSteamAppList($apiKey) {
+    if (empty($apiKey)) {
+        throw new Exception('Steam API key required to download app list');
+    }
+
+    writeLog("Downloading Steam app list via IStoreService/GetAppList (paginated)");
+    $baseUrl = 'https://api.steampowered.com/IStoreService/GetAppList/v1/';
     $context = stream_context_create([
         'http' => [
-            'timeout' => 120,
-            'user_agent' => 'GameTracker/1.0'
+            'timeout' => 60,
+            'user_agent' => 'GameTracker/1.0',
+            'ignore_errors' => true,
         ]
     ]);
 
-    $response = @file_get_contents($url, false, $context);
-    if ($response === false) {
-        $err = error_get_last();
-        throw new Exception('Failed to download Steam app list: ' . ($err['message'] ?? 'unknown error'));
+    $apps = [];
+    $lastAppId = 0;
+    $page = 0;
+    $maxPages = 50; // safety cap
+
+    do {
+        $page++;
+        $params = [
+            'key' => $apiKey,
+            'include_games' => 1,
+            'include_dlc' => 0,
+            'include_software' => 0,
+            'include_videos' => 0,
+            'include_hardware' => 0,
+            'max_results' => 50000,
+        ];
+        if ($lastAppId > 0) {
+            $params['last_appid'] = $lastAppId;
+        }
+
+        $url = $baseUrl . '?' . http_build_query($params);
+        $response = @file_get_contents($url, false, $context);
+        if ($response === false) {
+            $err = error_get_last();
+            throw new Exception('Failed to download Steam app list: ' . ($err['message'] ?? 'unknown error'));
+        }
+
+        $statusLine = $http_response_header[0] ?? '';
+        if (preg_match('/\s(\d{3})\s/', $statusLine, $m) && (int)$m[1] >= 400) {
+            throw new Exception('Steam app list HTTP ' . $m[1] . ': ' . substr($response, 0, 200));
+        }
+
+        $data = json_decode($response, true);
+        if (!$data || !isset($data['response']) || !is_array($data['response'])) {
+            throw new Exception('Invalid Steam app list response');
+        }
+
+        $resp = $data['response'];
+        $pageApps = $resp['apps'] ?? [];
+        if (!is_array($pageApps)) {
+            throw new Exception('Invalid Steam app list apps payload');
+        }
+
+        foreach ($pageApps as $app) {
+            if (empty($app['appid']) || empty($app['name'])) {
+                continue;
+            }
+            $apps[] = [
+                'appid' => $app['appid'],
+                'name' => $app['name'],
+            ];
+        }
+
+        $haveMore = !empty($resp['have_more_results']);
+        $lastAppId = (int)($resp['last_appid'] ?? 0);
+        writeLog("Steam app list page $page: +" . count($pageApps) . " (total " . count($apps) . ")");
+
+        if ($haveMore && $lastAppId <= 0) {
+            throw new Exception('Steam indicated more results but no last_appid');
+        }
+    } while ($haveMore && $page < $maxPages);
+
+    if (empty($apps)) {
+        throw new Exception('Steam app list returned zero games');
     }
 
-    $data = json_decode($response, true);
-    if (!$data || !isset($data['applist']['apps']) || !is_array($data['applist']['apps'])) {
-        throw new Exception('Invalid Steam app list response');
-    }
-
-    writeLog("Steam app list downloaded: " . count($data['applist']['apps']) . " apps");
-    return $data['applist']['apps'];
+    writeLog("Steam app list downloaded: " . count($apps) . " apps");
+    return $apps;
 }
 
 /**
@@ -361,7 +423,7 @@ function buildSteamAppExactIndex(array $apps) {
  * Match a local game title against a preloaded Steam app list.
  * Returns ['appid'=>string, 'name'=>string, 'match'=>'exact'|'fuzzy'] or null.
  */
-function matchSteamAppFromList($title, array $apps, array $exactIndex = null) {
+function matchSteamAppFromList($title, array $apps, ?array $exactIndex = null) {
     $search = normalizeSteamTitle($title);
     if ($search === '') {
         return null;
@@ -461,7 +523,10 @@ function matchSteamAppFromList($title, array $apps, array $exactIndex = null) {
 function searchSteamGame($title, $apiKey = null) {
     writeLog("Searching Steam for game: $title");
     try {
-        $apps = fetchSteamAppList();
+        if (empty($apiKey) && defined('STEAM_API_KEY')) {
+            $apiKey = STEAM_API_KEY;
+        }
+        $apps = fetchSteamAppList($apiKey);
         $match = matchSteamAppFromList($title, $apps);
         return $match ? $match['appid'] : null;
     } catch (Exception $e) {
@@ -498,7 +563,11 @@ function updateGameSteamId($conn, $gameId, $steamAppId) {
 function findAndUpdateSteamIds($conn, $apiKey = null) {
     writeLog("Starting bulk Steam ID update");
 
-    $apps = fetchSteamAppList();
+    if (empty($apiKey) && defined('STEAM_API_KEY')) {
+        $apiKey = STEAM_API_KEY;
+    }
+
+    $apps = fetchSteamAppList($apiKey);
     $exactIndex = buildSteamAppExactIndex($apps);
 
     // Missing, empty, zero, or known junk IDs — leave valid IDs alone
