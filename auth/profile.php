@@ -3122,16 +3122,24 @@ function refreshAchievements() {
     fetch('refresh_achievements.php')
         .then(response => response.json())
         .then(data => {
+            // Keep response visible in Console even after reload
+            console.log('Achievement refresh result:', data);
+
             if (data.success) {
-                showToast(data.message || 'Achievements refreshed', 'success', 5000);
-                setTimeout(() => location.reload(), 800);
+                const updatedList = (data.updated_titles || []).slice(0, 8).join(', ');
+                const extra = updatedList ? ` Updated: ${updatedList}${(data.updated_titles || []).length > 8 ? '…' : ''}` : '';
+                showToast((data.message || 'Achievements refreshed') + extra, 'success', 8000);
+                // Delay reload so Network/Console stay inspectable
+                button.innerHTML = '<i class="bi bi-check2 me-2"></i>Done — reloading…';
+                setTimeout(() => location.reload(), 5000);
             } else {
                 showToast('Failed to refresh achievements: ' + (data.error || 'Unknown error'), 'error');
                 button.disabled = false;
                 button.innerHTML = originalHtml;
             }
         })
-        .catch(() => {
+        .catch((err) => {
+            console.error('Achievement refresh failed:', err);
             showToast('Failed to refresh achievements', 'error');
             button.disabled = false;
             button.innerHTML = originalHtml;
