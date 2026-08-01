@@ -14,6 +14,14 @@ $search = $_GET['search'] ?? '';
 $platform = $_GET['platform'] ?? '';
 $genre = $_GET['genre'] ?? '';
 $duplicates_only = isset($_GET['duplicates_only']) && $_GET['duplicates_only'] === '1';
+$needs_steam_id = isset($_GET['needs_steam_id']) && $_GET['needs_steam_id'] === '1';
+$sort = $_GET['sort'] ?? 'default';
+$allowed_sorts = ['default', 'steam_asc', 'steam_desc'];
+if (!in_array($sort, $allowed_sorts, true)) {
+    $sort = 'default';
+}
+
+$needsSteamIdSql = "(steam_app_id IS NULL OR TRIM(steam_app_id) = '' OR TRIM(steam_app_id) = '0' OR TRIM(steam_app_id) = '17760')";
 
 // Build WHERE clause for database query based on filters
 $where = [];
@@ -26,21 +34,41 @@ if (!empty($platform)) {
 if (!empty($genre)) {
     $where[] = "genre LIKE '%" . $conn->real_escape_string($genre) . "%'";
 }
+if ($needs_steam_id) {
+    $where[] = $needsSteamIdSql;
+}
+
+// ORDER BY — default keeps prior behavior; steam sorts are numeric
+if ($sort === 'steam_asc') {
+    $orderBy = "ORDER BY (steam_app_id IS NULL OR TRIM(steam_app_id) = '' OR TRIM(steam_app_id) = '0') ASC, CAST(steam_app_id AS UNSIGNED) ASC, title ASC";
+    $orderByPrefixed = "ORDER BY (g.steam_app_id IS NULL OR TRIM(g.steam_app_id) = '' OR TRIM(g.steam_app_id) = '0') ASC, CAST(g.steam_app_id AS UNSIGNED) ASC, g.title ASC";
+} elseif ($sort === 'steam_desc') {
+    $orderBy = "ORDER BY (steam_app_id IS NULL OR TRIM(steam_app_id) = '' OR TRIM(steam_app_id) = '0') ASC, CAST(steam_app_id AS UNSIGNED) DESC, title ASC";
+    $orderByPrefixed = "ORDER BY (g.steam_app_id IS NULL OR TRIM(g.steam_app_id) = '' OR TRIM(g.steam_app_id) = '0') ASC, CAST(g.steam_app_id AS UNSIGNED) DESC, g.title ASC";
+} else {
+    $orderBy = $duplicates_only ? "ORDER BY title ASC, release_date ASC" : "ORDER BY release_date ASC";
+    $orderByPrefixed = $duplicates_only ? "ORDER BY g.title ASC, g.release_date ASC" : "ORDER BY g.release_date ASC";
+}
+
 // Build query: duplicates_only uses a JOIN so we only get games whose title appears more than once
 if ($duplicates_only) {
-    $base_where = $where; // search, platform, genre
-    $where_sql = !empty($base_where) ? " AND " . implode(' AND ', $base_where) : "";
+    $where_prefixed = [];
+    foreach ($where as $clause) {
+        // Qualify columns for the aliased games table
+        $where_prefixed[] = preg_replace('/\b(title|platforms|genre|steam_app_id)\b/', 'g.$1', $clause);
+    }
+    $where_sql = !empty($where_prefixed) ? ' AND ' . implode(' AND ', $where_prefixed) : '';
     $sql = "SELECT g.* FROM games g
             INNER JOIN (SELECT title FROM games GROUP BY title HAVING COUNT(*) > 1) dup ON g.title = dup.title
             WHERE 1=1" . $where_sql . "
-            ORDER BY g.title ASC, g.release_date ASC";
+            " . $orderByPrefixed;
     $result = $conn->query($sql);
 } else {
     $sql = "SELECT * FROM games";
     if (!empty($where)) {
         $sql .= " WHERE " . implode(' AND ', $where);
     }
-    $sql .= " ORDER BY release_date ASC";
+    $sql .= " " . $orderBy;
     $result = $conn->query($sql);
 }
 ?>
@@ -334,7 +362,13 @@ if ($duplicates_only) {
         <div class="col-12 col-lg-11">
             <div class="filter-container">
                 <form method="get" class="row g-3">
-                    <div class="col-12 col-md-6 col-lg-4">
+                    <?php if ($duplicates_only): ?>
+                        <input type="hidden" name="duplicates_only" value="1">
+                    <?php endif; ?>
+                    <?php if ($needs_steam_id): ?>
+                        <input type="hidden" name="needs_steam_id" value="1">
+                    <?php endif; ?>
+                    <div class="col-12 col-md-6 col-lg-3">
                         <label for="search" class="form-label">Search</label>
                         <div class="input-group">
                             <span class="input-group-text bg-transparent border-end-0 text-light">
@@ -364,29 +398,64 @@ if ($duplicates_only) {
                             <option value="Adventure" <?= $genre == 'Adventure' ? 'selected' : '' ?>>Adventure</option>
                         </select>
                     </div>
-                    <div class="col-6 col-md-3 col-lg-2 d-flex align-items-end">
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label for="sort" class="form-label">Sort</label>
+                        <select name="sort" id="sort" class="form-select custom-select">
+                            <option value="default" <?= $sort === 'default' ? 'selected' : '' ?>>Default</option>
+                            <option value="steam_asc" <?= $sort === 'steam_asc' ? 'selected' : '' ?>>Steam App ID ↑</option>
+                            <option value="steam_desc" <?= $sort === 'steam_desc' ? 'selected' : '' ?>>Steam App ID ↓</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-3 d-flex align-items-end">
                         <button class="btn btn-primary w-100" type="submit">
                             <i class="ph ph-funnel me-2"></i>Apply Filters
                         </button>
                     </div>
-                    <div class="col-6 col-md-3 col-lg-2 d-flex align-items-end">
+                    <div class="col-6 col-md-3 col-lg-3 d-flex align-items-end">
                         <?php
                         $base_params = array_filter([
                             'search' => $search,
                             'platform' => $platform,
                             'genre' => $genre,
+                            'sort' => $sort !== 'default' ? $sort : null,
+                            'needs_steam_id' => $needs_steam_id ? '1' : null,
                         ]);
-                        $dup_link_params = $base_params;
-                        $dup_link_params['duplicates_only'] = '1';
-                        $all_link_params = $base_params;
+                        $dup_on_params = $base_params;
+                        $dup_on_params['duplicates_only'] = '1';
+                        $dup_off_params = $base_params;
+                        unset($dup_off_params['duplicates_only']);
                         ?>
                         <?php if ($duplicates_only): ?>
-                            <a href="manage-games.php?<?= http_build_query($all_link_params) ?>" class="btn btn-outline-secondary w-100">
-                                <i class="ph ph-list-bullets me-2"></i>Show all
+                            <a href="manage-games.php?<?= http_build_query($dup_off_params) ?>" class="btn btn-outline-secondary w-100">
+                                <i class="ph ph-list-bullets me-2"></i>Show all titles
                             </a>
                         <?php else: ?>
-                            <a href="manage-games.php?<?= http_build_query($dup_link_params) ?>" class="btn btn-outline-warning w-100" title="Show only games that share the same title (duplicates)">
+                            <a href="manage-games.php?<?= http_build_query($dup_on_params) ?>" class="btn btn-outline-warning w-100" title="Show only games that share the same title (duplicates)">
                                 <i class="ph ph-copy me-2"></i>Duplicates only
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-3 d-flex align-items-end">
+                        <?php
+                        $steam_base = array_filter([
+                            'search' => $search,
+                            'platform' => $platform,
+                            'genre' => $genre,
+                            'sort' => $sort !== 'default' ? $sort : null,
+                            'duplicates_only' => $duplicates_only ? '1' : null,
+                        ]);
+                        $steam_on_params = $steam_base;
+                        $steam_on_params['needs_steam_id'] = '1';
+                        $steam_off_params = $steam_base;
+                        unset($steam_off_params['needs_steam_id']);
+                        ?>
+                        <?php if ($needs_steam_id): ?>
+                            <a href="manage-games.php?<?= http_build_query($steam_off_params) ?>" class="btn btn-outline-secondary w-100">
+                                <i class="ph ph-list-bullets me-2"></i>Show all Steam IDs
+                            </a>
+                        <?php else: ?>
+                            <a href="manage-games.php?<?= http_build_query($steam_on_params) ?>" class="btn btn-outline-info w-100" title="Show only games missing or with junk Steam App IDs (NULL, 0, 17760)">
+                                <i class="ph ph-steam-logo me-2"></i>Needs Steam ID
                             </a>
                         <?php endif; ?>
                     </div>
@@ -403,13 +472,20 @@ if ($duplicates_only) {
                     <span>Showing only games whose title appears more than once. Delete the duplicate(s) you don’t want to keep.</span>
                 </div>
             <?php endif; ?>
-            <?php if ($result->num_rows > 0): ?>
+            <?php if ($needs_steam_id): ?>
+                <div class="alert alert-info d-flex align-items-center mb-3" style="background: rgba(13, 202, 240, 0.12); border: 1px solid rgba(13, 202, 240, 0.35); color: #e0e0e0;">
+                    <i class="ph ph-steam-logo me-2" style="font-size: 1.5rem;"></i>
+                    <span>Showing games with missing or junk Steam App IDs (NULL, empty, 0, or 17760). Edit a game to set the correct ID.</span>
+                </div>
+            <?php endif; ?>
+            <?php if ($result && $result->num_rows > 0): ?>
                 <div class="table-container">
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
                                 <tr>
                                     <th><i class="ph ph-hash me-2"></i>ID</th>
+                                    <th><i class="ph ph-steam-logo me-2"></i>Steam App ID</th>
                                     <th><i class="ph ph-game-controller me-2"></i>Title</th>
                                     <th><i class="ph ph-calendar me-2"></i>Release Date</th>
                                     <th><i class="ph ph-device-mobile me-2"></i>Platforms</th>
@@ -419,8 +495,19 @@ if ($duplicates_only) {
                             </thead>
                             <tbody>
                                 <?php while($row = $result->fetch_assoc()): ?>
+                                    <?php
+                                    $steamIdDisplay = trim((string)($row['steam_app_id'] ?? ''));
+                                    $steamIdIsJunk = ($steamIdDisplay === '' || $steamIdDisplay === '0' || $steamIdDisplay === '17760');
+                                    ?>
                                     <tr>
                                         <td data-label="ID"><?= htmlspecialchars($row['id']) ?></td>
+                                        <td data-label="Steam App ID">
+                                            <?php if ($steamIdIsJunk): ?>
+                                                <span class="text-secondary">—</span>
+                                            <?php else: ?>
+                                                <code style="color: #cfcfe0;"><?= htmlspecialchars($steamIdDisplay) ?></code>
+                                            <?php endif; ?>
+                                        </td>
                                         <td data-label="Title"><?= htmlspecialchars($row['title']) ?></td>
                                         <td data-label="Release Date"><?= htmlspecialchars($row['release_date']) ?: 'TBA' ?></td>
                                         <td data-label="Platforms"><?= htmlspecialchars($row['platforms']) ?></td>
@@ -447,6 +534,10 @@ if ($duplicates_only) {
                         <i class="ph ph-check-circle"></i>
                         <h4>No duplicates found</h4>
                         <p>No games share the same title. <a href="manage-games.php" class="text-decoration-none" style="color: var(--primary-color);">Show all games</a>.</p>
+                    <?php elseif ($needs_steam_id): ?>
+                        <i class="ph ph-check-circle"></i>
+                        <h4>No games need Steam IDs</h4>
+                        <p>Nothing missing or marked as junk. <a href="manage-games.php" class="text-decoration-none" style="color: var(--primary-color);">Show all games</a>.</p>
                     <?php else: ?>
                         <i class="ph ph-magnifying-glass-minus"></i>
                         <h4>No games found</h4>
