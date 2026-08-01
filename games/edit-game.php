@@ -39,6 +39,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $platforms = $conn->real_escape_string($_POST['platforms']);
     $genre = $conn->real_escape_string($_POST['genre']);
     $description = $conn->real_escape_string($_POST['description'] ?? '');
+    $steamAppIdRaw = trim((string)($_POST['steam_app_id'] ?? ''));
+    $steam_app_id = ($steamAppIdRaw === '' || $steamAppIdRaw === '0')
+        ? null
+        : preg_replace('/\D+/', '', $steamAppIdRaw);
+    if ($steam_app_id === '') {
+        $steam_app_id = null;
+    }
     $image_url = '';
     $portrait_image_url = '';
 
@@ -93,11 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Update game in database if no errors
     if (empty($error)) {
         $sql = "UPDATE games 
-                SET title = ?, release_date = ?, tba_year = ?, is_tba = ?, platforms = ?, genre = ?, image_url = ?, portrait_image_url = ?, description = ?
+                SET title = ?, release_date = ?, tba_year = ?, is_tba = ?, platforms = ?, genre = ?, image_url = ?, portrait_image_url = ?, description = ?, steam_app_id = ?
                 WHERE id = ?";
 
         $update = $conn->prepare($sql);
-        $update->bind_param("ssiisssssi",
+        $update->bind_param("ssiissssssi",
             $title,
             $release_date,
             $tba_year,
@@ -107,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $image_url,
             $portrait_image_url,
             $description,
+            $steam_app_id,
             $id
         );
 
@@ -123,7 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 'genre' => $genre,
                 'image_url' => $image_url,
                 'portrait_image_url' => $portrait_image_url,
-                'description' => $description
+                'description' => $description,
+                'steam_app_id' => $steam_app_id
             ];
         } else {
             $error = "❌ Failed to update game.";
@@ -383,6 +392,15 @@ $desc = str_replace(["\\r\\n", "\\n", "\\r", "\r\n"], "\n", $game['description']
                     <div class="mb-3">
                         <label class="form-label"><i class="ph ph-tag me-2"></i>Genres</label>
                         <input type="text" name="genre" class="form-control" placeholder="Action, Adventure, RPG" value="<?= htmlspecialchars($game['genre']) ?>">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-steam me-2"></i>Steam App ID</label>
+                        <input type="text" name="steam_app_id" class="form-control" inputmode="numeric" pattern="[0-9]*" placeholder="e.g. 2806050" value="<?= htmlspecialchars((string)($game['steam_app_id'] ?? '')) ?>">
+                        <div class="form-text text-muted">
+                            Optional. Find it in the Steam store URL: <code>store.steampowered.com/app/<strong>2806050</strong>/...</code>
+                            Leave blank to clear.
+                        </div>
                     </div>
 
                     <div class="mb-3">
